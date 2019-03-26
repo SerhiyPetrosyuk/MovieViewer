@@ -11,17 +11,18 @@ import android.view.ViewGroup
 import android.widget.Toast
 import com.shykun.volodymyr.movieviewer.R
 import com.shykun.volodymyr.movieviewer.data.entity.MoviesType
-import com.shykun.volodymyr.movieviewer.data.network.response.MoviesResponse
 import com.shykun.volodymyr.movieviewer.presentation.common.BackButtonListener
 import com.shykun.volodymyr.movieviewer.presentation.common.TabNavigationFragment
+import com.shykun.volodymyr.movieviewer.presentation.model.HorizontalItem
+import com.shykun.volodymyr.movieviewer.presentation.model.ItemType
 import com.shykun.volodymyr.movieviewer.presentation.movies.details.MOVIE_DETAILS_FRAGMENT_KEY
 import com.shykun.volodymyr.movieviewer.presentation.movies.list.MOVIE_LIST_FRAGMENT_KEY
 import com.shykun.volodymyr.movieviewer.presentation.movies.list.MOVIE_TYPE_KEY
-import com.shykun.volodymyr.movieviewer.presentation.movies.search.MOVIES_SEARCH_FRAGMENT_KEY
+import com.shykun.volodymyr.movieviewer.presentation.search.ITEM_TYPE_KEY
+import com.shykun.volodymyr.movieviewer.presentation.search.SEARCH_FRAGMENT_KEY
 import io.reactivex.android.schedulers.AndroidSchedulers
 import kotlinx.android.synthetic.main.fragment_movies_tab.*
 import ru.terrakok.cicerone.Router
-import java.lang.Exception
 import javax.inject.Inject
 
 const val MOVIE_TAB_FRAGMENT_KEY = "movie_tab_fragment_key"
@@ -44,7 +45,7 @@ class MovieTabFragment : Fragment(), BackButtonListener {
         super.onCreate(savedInstanceState)
         (parentFragment as TabNavigationFragment).component?.inject(this)
 
-        generalMovieTabAdapter = GeneralMovieTabAdapter(ArrayList(3))
+        generalMovieTabAdapter = GeneralMovieTabAdapter()
         viewModel = ViewModelProviders.of(this, viewModelFactory)
                 .get(MovieTabViewModel::class.java)
 
@@ -73,7 +74,9 @@ class MovieTabFragment : Fragment(), BackButtonListener {
         moviesToolbar.inflateMenu(R.menu.manu_app)
         moviesToolbar.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
-                R.id.action_search -> router.navigateTo(MOVIES_SEARCH_FRAGMENT_KEY)
+                R.id.action_search -> router.navigateTo(SEARCH_FRAGMENT_KEY, Bundle().apply {
+                    putSerializable(ITEM_TYPE_KEY, ItemType.MOVIE)
+                })
             }
             true
         }
@@ -97,10 +100,10 @@ class MovieTabFragment : Fragment(), BackButtonListener {
     private fun setupMovieClick() {
         generalMovieTabAdapter.movieClickEvent
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe ({
-            router.navigateTo(MOVIE_DETAILS_FRAGMENT_KEY, it)
-        },
-        { error -> Toast.makeText(this.context, error.message, Toast.LENGTH_LONG).show() })
+                .subscribe({
+                    router.navigateTo(MOVIE_DETAILS_FRAGMENT_KEY, it)
+                },
+                        { error -> Toast.makeText(this.context, error.message, Toast.LENGTH_LONG).show() })
     }
 
     private fun setupAdapter() {
@@ -117,21 +120,21 @@ class MovieTabFragment : Fragment(), BackButtonListener {
         viewModel.loadingErrorLiveData.observe(this, Observer { showError(it) })
     }
 
-    private fun showPopularMovies(moviesResponse: MoviesResponse?) {
-        if (moviesResponse != null) {
-            generalMovieTabAdapter.addMovies(moviesResponse.results, POPULAR_MOVIES)
+    private fun showPopularMovies(movies: List<HorizontalItem>?) {
+        if (movies != null) {
+            generalMovieTabAdapter.addMovies(movies, POPULAR_MOVIES)
         }
     }
 
-    private fun showTopRatedMovies(moviesResponse: MoviesResponse?) {
-        if (moviesResponse != null) {
-            generalMovieTabAdapter.addMovies(moviesResponse.results, TOP_RATED_MOVIES)
+    private fun showTopRatedMovies(movies: List<HorizontalItem>?) {
+        if (movies != null) {
+            generalMovieTabAdapter.addMovies(movies, TOP_RATED_MOVIES)
         }
     }
 
-    private fun showUpcomingMovies(moviesResponse: MoviesResponse?) {
-        if (moviesResponse != null) {
-            generalMovieTabAdapter.addMovies(moviesResponse.results, UPCOMING_MOVIES)
+    private fun showUpcomingMovies(movies: List<HorizontalItem>?) {
+        if (movies != null) {
+            generalMovieTabAdapter.addMovies(movies, UPCOMING_MOVIES)
         }
     }
 

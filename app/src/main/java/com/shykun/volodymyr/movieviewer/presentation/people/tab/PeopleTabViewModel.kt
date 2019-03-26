@@ -5,9 +5,14 @@ import android.arch.lifecycle.MutableLiveData
 import android.arch.lifecycle.ViewModel
 import com.shykun.volodymyr.movieviewer.data.entity.Person
 import com.shykun.volodymyr.movieviewer.domain.PeopleUseCase
+import com.shykun.volodymyr.movieviewer.domain.SearchUseCase
+import io.reactivex.Scheduler
 
 class PeopleTabViewModel(
-        private val peopleUseCase: PeopleUseCase) : ViewModel() {
+        private val peopleUseCase: PeopleUseCase,
+        private val searchUseCase: SearchUseCase,
+        private val backgroundScheduler: Scheduler,
+        private val mainScheduler: Scheduler) : ViewModel() {
 
     private val peopleMutableLiveData = MutableLiveData<List<Person>>()
     private val loadingErrorMutableLiveData = MutableLiveData<String>()
@@ -15,19 +20,20 @@ class PeopleTabViewModel(
     val peopleLiveData: LiveData<List<Person>> = peopleMutableLiveData
     val loadingErrorLiveData: LiveData<String> = loadingErrorMutableLiveData
 
-    fun onViewLoaded() {
-        getPeople(1)
-    }
-
     fun getPeople(page: Int) = peopleUseCase.getPopularPeople(page)
+            .map { it.results }
+            .subscribeOn(backgroundScheduler)
+            .observeOn(mainScheduler)
             .subscribe(
                     { response -> peopleMutableLiveData.value = response },
                     { error -> loadingErrorMutableLiveData.value = error.message }
             )
 
-    fun searchPeople(query: String, page: Int) = peopleUseCase.searchPeople(query, page)
+    fun searchPeople(query: String, page: Int) = searchUseCase.searchPeople(query, page)
+            .subscribeOn(backgroundScheduler)
+            .observeOn(mainScheduler)
             .subscribe(
-                    { response -> peopleMutableLiveData.value = response },
+                    { response -> peopleMutableLiveData.value = response.results },
                     { error -> loadingErrorMutableLiveData.value = error.message }
             )
 }

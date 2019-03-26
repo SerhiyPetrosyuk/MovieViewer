@@ -18,8 +18,6 @@ import com.google.android.youtube.player.YouTubeInitializationResult
 import com.google.android.youtube.player.YouTubePlayer
 import com.google.android.youtube.player.YouTubePlayerSupportFragment
 import com.shykun.volodymyr.movieviewer.R
-import com.shykun.volodymyr.movieviewer.data.entity.Actor
-import com.shykun.volodymyr.movieviewer.data.entity.Movie
 import com.shykun.volodymyr.movieviewer.data.entity.Review
 import com.shykun.volodymyr.movieviewer.data.entity.Video
 import com.shykun.volodymyr.movieviewer.data.network.YOUTUBE_API_KEY
@@ -27,12 +25,16 @@ import com.shykun.volodymyr.movieviewer.data.network.response.ItemAccountStateRe
 import com.shykun.volodymyr.movieviewer.data.network.response.MovieDetailsResponse
 import com.shykun.volodymyr.movieviewer.data.network.response.PostResponse
 import com.shykun.volodymyr.movieviewer.databinding.FragmentMovieDetailsBinding
-import com.shykun.volodymyr.movieviewer.presentation.AppActivity
 import com.shykun.volodymyr.movieviewer.presentation.common.BackButtonListener
+import com.shykun.volodymyr.movieviewer.presentation.common.dialog.RateDialog
+import com.shykun.volodymyr.movieviewer.presentation.common.dialog.RateListener
 import com.shykun.volodymyr.movieviewer.presentation.common.TabNavigationFragment
+import com.shykun.volodymyr.movieviewer.presentation.common.adapters.HorizontalListAdapter
+import com.shykun.volodymyr.movieviewer.presentation.common.adapters.ReviewAdapter
+import com.shykun.volodymyr.movieviewer.presentation.model.HorizontalItem
 import com.shykun.volodymyr.movieviewer.presentation.people.details.PERSON_DETAILS_FRAGMENT_KEY
+import com.shykun.volodymyr.movieviewer.presentation.profile.LOGIN_FRAGMENT_KEY
 import com.shykun.volodymyr.movieviewer.presentation.profile.SESSION_ID_KEY
-import com.shykun.volodymyr.movieviewer.presentation.utils.NavigationKeys
 import kotlinx.android.synthetic.main.fragment_movie_details.*
 import ru.terrakok.cicerone.Router
 import javax.inject.Inject
@@ -47,16 +49,16 @@ private const val deleteFromWatchlistActionId = 3
 private const val markAsFavoriteActionId = 4
 private const val deleteFromFavoritesActionsId = 5
 
-class MovieDetailsFragment : Fragment(), BackButtonListener {
+class MovieDetailsFragment : Fragment(), BackButtonListener, RateListener {
 
     private var movieId = -1
     private var viewWasLoaded = false
 
     private lateinit var viewModel: MovieDetailsViewModel
     private var binding: FragmentMovieDetailsBinding? = null
-    private lateinit var castAdapter: CastAdapter
+    private lateinit var actorsAdapter: HorizontalListAdapter
+    private lateinit var recommendedMoviesAdapter: HorizontalListAdapter
     private lateinit var reviewsAdapter: ReviewAdapter
-    private lateinit var recommendedMoviesAdapter: RecommendedMoviesAdapter
 
     @Inject
     lateinit var viewModelFactory: MovieDetailsViewModelFactory
@@ -70,9 +72,9 @@ class MovieDetailsFragment : Fragment(), BackButtonListener {
 
         (parentFragment as TabNavigationFragment).component?.inject(this)
 
-        castAdapter = CastAdapter(ArrayList())
-        reviewsAdapter = ReviewAdapter(ArrayList())
-        recommendedMoviesAdapter = RecommendedMoviesAdapter(ArrayList())
+        actorsAdapter = HorizontalListAdapter()
+        recommendedMoviesAdapter = HorizontalListAdapter()
+        reviewsAdapter = ReviewAdapter()
 
         movieId = arguments?.getInt(MOVIE_ID_KEY)!!
         viewModel = ViewModelProviders
@@ -82,11 +84,6 @@ class MovieDetailsFragment : Fragment(), BackButtonListener {
         subscribeViewModel()
         setupRecommendedMovieClick()
         setupActorClick()
-
-        val sessionId = prefs.getString(SESSION_ID_KEY, null)
-
-        if (sessionId != null)
-            viewModel.getMovieAccountStates(movieId, sessionId!!)
 
         if (savedInstanceState != null)
             viewWasLoaded = true
@@ -114,8 +111,13 @@ class MovieDetailsFragment : Fragment(), BackButtonListener {
         setupCastAdapter()
         setupReviewsAdapter()
         setupRecommendedMoviesAdapter()
+        getMovieAccountStates()
+    }
 
-
+    private fun getMovieAccountStates() {
+        val sessionId = prefs.getString(SESSION_ID_KEY, null)
+        if (sessionId != null)
+            viewModel.getMovieAccountStates(movieId, sessionId)
     }
 
     private fun initTrailer(trailer: Video) {
@@ -156,7 +158,7 @@ class MovieDetailsFragment : Fragment(), BackButtonListener {
     private fun setupCastAdapter() {
         movieCast.apply {
             layoutManager = LinearLayoutManager(this.context, LinearLayoutManager.HORIZONTAL, false)
-            adapter = castAdapter
+            adapter = actorsAdapter
         }
     }
 
@@ -176,11 +178,16 @@ class MovieDetailsFragment : Fragment(), BackButtonListener {
     }
 
     private fun setupRecommendedMovieClick() {
-        recommendedMoviesAdapter.clickObservable.subscribe { router.navigateTo(MOVIE_DETAILS_FRAGMENT_KEY, it) }
+        recommendedMoviesAdapter.clickObservable.subscribe { router.navigateTo(MOVIE_DETAILS_FRAGMENT_KEY, it.id) }
     }
 
     private fun setupActorClick() {
-        castAdapter.clickObservable.subscribe { router.navigateTo(PERSON_DETAILS_FRAGMENT_KEY, it) }
+        actorsAdapter.clickObservable.subscribe { router.navigateTo(PERSON_DETAILS_FRAGMENT_KEY, it.id) }
+    }
+
+    override fun onRateClickListener(rating: Float) {
+        val sessionId = prefs.getString(SESSION_ID_KEY, null)
+        viewModel.rateMovie(movieId, rating, sessionId)
     }
 
     private fun performMenuAction(action: (sessionId: String) -> Unit): Boolean {
@@ -194,7 +201,7 @@ class MovieDetailsFragment : Fragment(), BackButtonListener {
     }
 
     private fun rateMovie() = performMenuAction { sessionId ->
-        MovieRateDialogFragment.newInstance(movieId, sessionId).show(childFragmentManager, RATE_DIALOG_TAG)
+        RateDialog().show(childFragmentManager, RATE_DIALOG_TAG)
     }
 
     private fun deleteRatig() = performMenuAction { sessionId ->
@@ -219,7 +226,7 @@ class MovieDetailsFragment : Fragment(), BackButtonListener {
 
     private fun subscribeViewModel() {
         viewModel.movieDetailsLiveData.observe(this, Observer { showMovieDetails(it) })
-        viewModel.movieCastLiveData.observe(this, Observer { showMovieCast(it) })
+        viewModel.movieActorsLiveData.observe(this, Observer { showMovieActors(it) })
         viewModel.movieReviewLiveData.observe(this, Observer { showReviews(it) })
         viewModel.recommendedMoviesLiveData.observe(this, Observer { showRecommendedMovies(it) })
 
@@ -241,21 +248,21 @@ class MovieDetailsFragment : Fragment(), BackButtonListener {
         }
     }
 
-    private fun showMovieCast(movieCast: List<Actor>?) {
-        if (movieCast != null) {
-            castAdapter.addCast(movieCast)
+    private fun showMovieActors(actors: List<HorizontalItem>?) {
+        if (actors != null) {
+            actorsAdapter.addItems(actors)
         }
     }
 
     private fun showReviews(reviews: List<Review>?) {
         if (reviews != null) {
-            reviewsAdapter.addReviews(reviews)
+            reviewsAdapter.addItems(reviews)
         }
     }
 
-    private fun showRecommendedMovies(movies: List<Movie>?) {
+    private fun showRecommendedMovies(movies: List<HorizontalItem>?) {
         if (movies != null) {
-            recommendedMoviesAdapter.addMovies(movies)
+            recommendedMoviesAdapter.addItems(movies)
         }
     }
 
@@ -304,7 +311,7 @@ class MovieDetailsFragment : Fragment(), BackButtonListener {
 
 
     private fun openLoginSnackBar() = showSnackbar("You are not authorized", "Login") {
-        (activity as AppActivity).cicerone.router.replaceScreen(NavigationKeys.PROFILE_NAVIGATION_KEY)
+        router.navigateTo(LOGIN_FRAGMENT_KEY)
     }
 
     private fun handleRateResponse(response: PostResponse?) {

@@ -3,22 +3,27 @@ package com.shykun.volodymyr.movieviewer.presentation.tv.tab
 import android.arch.lifecycle.LiveData
 import android.arch.lifecycle.MutableLiveData
 import android.arch.lifecycle.ViewModel
-import com.shykun.volodymyr.movieviewer.data.entity.Tv
 import com.shykun.volodymyr.movieviewer.data.entity.TvType
-import com.shykun.volodymyr.movieviewer.data.network.response.TvResponse
 import com.shykun.volodymyr.movieviewer.domain.TvUseCase
+import com.shykun.volodymyr.movieviewer.presentation.model.HorizontalItem
+import com.shykun.volodymyr.movieviewer.presentation.utils.popularTvToHorizontalListItem
+import com.shykun.volodymyr.movieviewer.presentation.utils.topRatedTvToHorizontalListItem
+import com.shykun.volodymyr.movieviewer.presentation.utils.tvOnTheAirToHorizontalListItem
+import io.reactivex.Scheduler
 
 class TvTabViewModel(
-        private val TVUseCase: TvUseCase) : ViewModel() {
+        private val TvUseCase: TvUseCase,
+        private val backgroundScheduler: Scheduler,
+        private val mainScheduler: Scheduler) : ViewModel() {
 
-    private val popularTvMutableLiveData = MutableLiveData<TvResponse>()
-    private val topRatedTvMutableLiveData = MutableLiveData<TvResponse>()
-    private val tvOnTheAirMutableLiveData = MutableLiveData<TvResponse>()
+    private val popularTvMutableLiveData = MutableLiveData<List<HorizontalItem>>()
+    private val topRatedTvMutableLiveData = MutableLiveData<List<HorizontalItem>>()
+    private val tvOnTheAirMutableLiveData = MutableLiveData<List<HorizontalItem>>()
     private val loadingErrorMutableLiveData = MutableLiveData<String>()
 
-    val popularTvLiveData: LiveData<TvResponse> = popularTvMutableLiveData
-    val topRatedTvLiveData: LiveData<TvResponse> = topRatedTvMutableLiveData
-    val tvOnTheAirLiveData: LiveData<TvResponse> = tvOnTheAirMutableLiveData
+    val popularTvLiveData: LiveData<List<HorizontalItem>> = popularTvMutableLiveData
+    val topRatedTvLiveData: LiveData<List<HorizontalItem>> = topRatedTvMutableLiveData
+    val tvOnTheAirLiveData: LiveData<List<HorizontalItem>> = tvOnTheAirMutableLiveData
     val loadingErrorLiveData: LiveData<String> = loadingErrorMutableLiveData
 
 
@@ -28,27 +33,35 @@ class TvTabViewModel(
         getTVOnTheAir(1)
     }
 
-    fun getPopularTV(page: Int) {
-        TVUseCase.getTv(TvType.POPULAR, page)
-                .subscribe(
-                        { response -> popularTvMutableLiveData.value = response },
-                        { error -> loadingErrorMutableLiveData.value = error.message }
-                )
-    }
+    fun getPopularTV(page: Int) =
+            TvUseCase.getTv(TvType.POPULAR, page)
+                    .map { it.results.mapIndexed { position, tv -> popularTvToHorizontalListItem(tv, position) } }
+                    .subscribeOn(backgroundScheduler)
+                    .observeOn(mainScheduler)
+                    .subscribe(
+                            { response -> popularTvMutableLiveData.value = response },
+                            { error -> loadingErrorMutableLiveData.value = error.message }
+                    )
 
-    fun getTopRatedTV(page: Int) {
-        TVUseCase.getTv(TvType.TOP_RATED, page)
-                .subscribe(
-                        { response -> topRatedTvMutableLiveData.value = response },
-                        { error -> loadingErrorMutableLiveData.value = error.message }
-                )
-    }
+    fun getTopRatedTV(page: Int) =
+            TvUseCase.getTv(TvType.TOP_RATED, page)
+                    .map { it.results.map { topRatedTvToHorizontalListItem(it) } }
+                    .subscribeOn(backgroundScheduler)
+                    .observeOn(mainScheduler)
+                    .subscribe(
+                            { response -> topRatedTvMutableLiveData.value = response },
+                            { error -> loadingErrorMutableLiveData.value = error.message }
+                    )
 
-    fun getTVOnTheAir(page: Int) {
-        TVUseCase.getTv(TvType.ON_THE_AIR, page)
-                .subscribe(
-                        { response -> tvOnTheAirMutableLiveData.value = response },
-                        { error -> loadingErrorMutableLiveData.value = error.message }
-                )
-    }
+
+    fun getTVOnTheAir(page: Int) =
+            TvUseCase.getTv(TvType.ON_THE_AIR, page)
+                    .map { it.results.map { tvOnTheAirToHorizontalListItem(it) } }
+                    .subscribeOn(backgroundScheduler)
+                    .observeOn(mainScheduler)
+                    .subscribe(
+                            { response -> tvOnTheAirMutableLiveData.value = response },
+                            { error -> loadingErrorMutableLiveData.value = error.message }
+                    )
+
 }

@@ -12,10 +12,12 @@ import android.widget.Toast
 import com.shykun.volodymyr.movieviewer.R
 import com.shykun.volodymyr.movieviewer.data.entity.Person
 import com.shykun.volodymyr.movieviewer.presentation.common.BackButtonListener
-import com.shykun.volodymyr.movieviewer.presentation.common.ScrollObservable
 import com.shykun.volodymyr.movieviewer.presentation.common.TabNavigationFragment
+import com.shykun.volodymyr.movieviewer.presentation.model.ItemType
 import com.shykun.volodymyr.movieviewer.presentation.people.details.PERSON_DETAILS_FRAGMENT_KEY
-import com.shykun.volodymyr.movieviewer.presentation.people.search.PEOPLE_SEARCH_FRAGMENT_KEY
+import com.shykun.volodymyr.movieviewer.presentation.search.ITEM_TYPE_KEY
+import com.shykun.volodymyr.movieviewer.presentation.search.SEARCH_FRAGMENT_KEY
+import com.shykun.volodymyr.movieviewer.presentation.utils.ScrollObservable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import kotlinx.android.synthetic.main.fragment_people_tab.*
 import ru.terrakok.cicerone.Router
@@ -41,7 +43,7 @@ class PeopleTabFragment : Fragment(), BackButtonListener {
         (parentFragment as TabNavigationFragment).component?.inject(this)
 
         searchQuery = arguments?.getString(PEOPLE_SEARCH_QUERY_KEY, null)
-        peopleTabAdapter = PeopleTabAdapter(ArrayList())
+        peopleTabAdapter = PeopleTabAdapter()
         viewModel = ViewModelProviders.of(this, viewModelFactory)
                 .get(PeopleTabViewModel::class.java)
 
@@ -65,8 +67,10 @@ class PeopleTabFragment : Fragment(), BackButtonListener {
     private fun setupToolbar() {
         peopleToolbar.inflateMenu(R.menu.manu_app)
         peopleToolbar.setOnMenuItemClickListener { menuItem ->
-            when(menuItem.itemId) {
-                R.id.action_search -> router.navigateTo(PEOPLE_SEARCH_FRAGMENT_KEY)
+            when (menuItem.itemId) {
+                R.id.action_search -> router.navigateTo(SEARCH_FRAGMENT_KEY, Bundle().apply {
+                    putSerializable(ITEM_TYPE_KEY, ItemType.PERSON)
+                })
             }
             true
         }
@@ -88,7 +92,7 @@ class PeopleTabFragment : Fragment(), BackButtonListener {
     fun getGridLayoutManager(): GridLayoutManager {
         val gridLayoutManager = GridLayoutManager(this@PeopleTabFragment.context, 3)
         gridLayoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
-            override fun getSpanSize(position: Int) = when(peopleTabAdapter.getItemViewType(position)) {
+            override fun getSpanSize(position: Int) = when (peopleTabAdapter.getItemViewType(position)) {
                 PERSON -> 1
                 LOADING -> 3
                 else -> -1
@@ -109,10 +113,10 @@ class PeopleTabFragment : Fragment(), BackButtonListener {
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnNext {
                     if (searchQuery == null)
-                        viewModel.getPeople(peopleTabAdapter.lastLoadedPage + 1)
+                        viewModel.getPeople(peopleTabAdapter.nextPage)
                     else
-                        viewModel.searchPeople(searchQuery!!, peopleTabAdapter.lastLoadedPage + 1)
-                    peopleTabAdapter.lastLoadedPage++
+                        viewModel.searchPeople(searchQuery!!, peopleTabAdapter.nextPage)
+                    peopleTabAdapter.nextPage++
                 }
                 .subscribe()
     }

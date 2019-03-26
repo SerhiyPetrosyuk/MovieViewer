@@ -15,13 +15,12 @@ const val PERSON = 0
 const val LOADING = 1
 
 
-class PeopleTabAdapter(items: ArrayList<Person>)
-    : BaseRecyclerViewAdapter<Person, BasePeopleViewHolder>(items) {
+class PeopleTabAdapter : BaseRecyclerViewAdapter<Person, BasePeopleViewHolder>() {
 
     private val clickSubject = PublishSubject.create<Int>()
 
     val personClickEvent: Observable<Int> = clickSubject
-    var lastLoadedPage = 1
+    var nextPage = 1
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BasePeopleViewHolder {
         val inflater = LayoutInflater.from(parent.context)

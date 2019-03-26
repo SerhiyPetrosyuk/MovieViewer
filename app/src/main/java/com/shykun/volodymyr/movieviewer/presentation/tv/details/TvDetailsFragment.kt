@@ -1,6 +1,5 @@
 package com.shykun.volodymyr.movieviewer.presentation.tv.details
 
-
 import android.arch.lifecycle.Observer
 import android.arch.lifecycle.ViewModelProviders
 import android.content.SharedPreferences
@@ -19,9 +18,7 @@ import com.google.android.youtube.player.YouTubeInitializationResult
 import com.google.android.youtube.player.YouTubePlayer
 import com.google.android.youtube.player.YouTubePlayerSupportFragment
 import com.shykun.volodymyr.movieviewer.R
-import com.shykun.volodymyr.movieviewer.data.entity.Actor
 import com.shykun.volodymyr.movieviewer.data.entity.Review
-import com.shykun.volodymyr.movieviewer.data.entity.Tv
 import com.shykun.volodymyr.movieviewer.data.entity.Video
 import com.shykun.volodymyr.movieviewer.data.network.YOUTUBE_API_KEY
 import com.shykun.volodymyr.movieviewer.data.network.response.ItemAccountStateResponse
@@ -30,13 +27,15 @@ import com.shykun.volodymyr.movieviewer.data.network.response.TvDetailsResponse
 import com.shykun.volodymyr.movieviewer.databinding.FragmentTvDetailsBinding
 import com.shykun.volodymyr.movieviewer.presentation.AppActivity
 import com.shykun.volodymyr.movieviewer.presentation.common.BackButtonListener
+import com.shykun.volodymyr.movieviewer.presentation.common.dialog.RateDialog
+import com.shykun.volodymyr.movieviewer.presentation.common.dialog.RateListener
 import com.shykun.volodymyr.movieviewer.presentation.common.TabNavigationFragment
-import com.shykun.volodymyr.movieviewer.presentation.movies.details.CastAdapter
-import com.shykun.volodymyr.movieviewer.presentation.movies.details.ReviewAdapter
+import com.shykun.volodymyr.movieviewer.presentation.common.adapters.HorizontalListAdapter
+import com.shykun.volodymyr.movieviewer.presentation.common.adapters.ReviewAdapter
+import com.shykun.volodymyr.movieviewer.presentation.model.HorizontalItem
 import com.shykun.volodymyr.movieviewer.presentation.people.details.PERSON_DETAILS_FRAGMENT_KEY
 import com.shykun.volodymyr.movieviewer.presentation.profile.SESSION_ID_KEY
 import com.shykun.volodymyr.movieviewer.presentation.utils.NavigationKeys
-import kotlinx.android.synthetic.main.fragment_movie_details.*
 import kotlinx.android.synthetic.main.fragment_tv_details.*
 import ru.terrakok.cicerone.Router
 import javax.inject.Inject
@@ -51,15 +50,15 @@ private const val deleteFromWatchlistActionId = 3
 private const val markAsFavoriteActionId = 4
 private const val deleteFromFavoritesActionsId = 5
 
-class TvDetailsFragment : Fragment(), BackButtonListener {
+class TvDetailsFragment : Fragment(), BackButtonListener, RateListener {
 
     private var tvId = -1
     private var viewWasLoaded = false
     private var binding: FragmentTvDetailsBinding? = null
     private lateinit var viewModel: TvDetailsViewModel
-    private lateinit var castAdapter: CastAdapter
+    private lateinit var actorsAdapter: HorizontalListAdapter
+    private lateinit var recommendedTvAdapter: HorizontalListAdapter
     private lateinit var reviewsAdapter: ReviewAdapter
-    private lateinit var recommendedTvAdapter: RecommendedTvAdapter
 
     @Inject
     lateinit var viewModelFactory: TvDetailsViewModelFactory
@@ -78,18 +77,13 @@ class TvDetailsFragment : Fragment(), BackButtonListener {
                 .of(this, viewModelFactory)
                 .get(TvDetailsViewModel::class.java)
 
-        castAdapter = CastAdapter(ArrayList())
-        recommendedTvAdapter = RecommendedTvAdapter(ArrayList())
-        reviewsAdapter = ReviewAdapter(ArrayList())
+        actorsAdapter = HorizontalListAdapter()
+        recommendedTvAdapter = HorizontalListAdapter()
+        reviewsAdapter = ReviewAdapter()
 
         subscribeViewModel()
         setupRecommendedTvClick()
         setupActorClick()
-
-        val sessionId = prefs.getString(SESSION_ID_KEY, null)
-
-        if (sessionId != null)
-            viewModel.getTvAccountStates(tvId, sessionId!!)
 
         if (savedInstanceState != null)
             viewWasLoaded = true
@@ -116,6 +110,13 @@ class TvDetailsFragment : Fragment(), BackButtonListener {
         setupCastAdapter()
         setupRecommendedTvAdapter()
         setupReviewsAdapter()
+        getTvAccountState()
+    }
+
+    private fun getTvAccountState() {
+        val sessionId = prefs.getString(SESSION_ID_KEY, null)
+        if (sessionId != null)
+            viewModel.getTvAccountStates(tvId, sessionId)
     }
 
     private fun initTrailer(trailer: Video) {
@@ -154,7 +155,7 @@ class TvDetailsFragment : Fragment(), BackButtonListener {
     private fun setupCastAdapter() {
         tvCast.apply {
             layoutManager = LinearLayoutManager(this.context, LinearLayoutManager.HORIZONTAL, false)
-            adapter = castAdapter
+            adapter = actorsAdapter
         }
     }
 
@@ -174,11 +175,16 @@ class TvDetailsFragment : Fragment(), BackButtonListener {
     }
 
     private fun setupRecommendedTvClick() {
-        recommendedTvAdapter.clickObservable.subscribe { router.navigateTo(TV_DETAILS_FRAGMENT_KEY, it) }
+        recommendedTvAdapter.clickObservable.subscribe { router.navigateTo(TV_DETAILS_FRAGMENT_KEY, it.id) }
     }
 
     private fun setupActorClick() {
-        castAdapter.clickObservable.subscribe { router.navigateTo(PERSON_DETAILS_FRAGMENT_KEY, it) }
+        actorsAdapter.clickObservable.subscribe { router.navigateTo(PERSON_DETAILS_FRAGMENT_KEY, it.id) }
+    }
+
+    override fun onRateClickListener(rating: Float) {
+        val sessionId = prefs.getString(SESSION_ID_KEY, null)
+        viewModel.rateTv(tvId, rating, sessionId)
     }
 
     private fun performMenuAction(action: (sessionId: String) -> Unit): Boolean {
@@ -192,7 +198,7 @@ class TvDetailsFragment : Fragment(), BackButtonListener {
     }
 
     private fun rateTv() = performMenuAction { sessionId ->
-        TvRateDialogFragment.newInstance(tvId, sessionId).show(childFragmentManager, RATE_DIALOG_TAG)
+        RateDialog().show(childFragmentManager, RATE_DIALOG_TAG)
     }
 
     private fun deleteRatig() = performMenuAction { sessionId ->
@@ -208,7 +214,7 @@ class TvDetailsFragment : Fragment(), BackButtonListener {
     }
 
     private fun markAsFavorite() = performMenuAction { sessionId ->
-        viewModel.markAsFavorite(tvId, sessionId)
+        viewModel.addToFavorites(tvId, sessionId)
     }
 
     private fun deleteFromFavorites() = performMenuAction { sessionId ->
@@ -217,7 +223,7 @@ class TvDetailsFragment : Fragment(), BackButtonListener {
 
     private fun subscribeViewModel() {
         viewModel.tvDetailsLiveData.observe(this, Observer { showTvDetails(it) })
-        viewModel.tvCastLiveData.observe(this, Observer { showTvCast(it) })
+        viewModel.tvActorsLiveData.observe(this, Observer { showTvCast(it) })
         viewModel.tvReviewsLiveData.observe(this, Observer { showReviews(it) })
         viewModel.recommendedTvLiveData.observe(this, Observer { showRecommendedTv(it) })
 
@@ -239,21 +245,21 @@ class TvDetailsFragment : Fragment(), BackButtonListener {
         }
     }
 
-    private fun showTvCast(tvCast: List<Actor>?) {
-        if (tvCast != null) {
-            castAdapter.addCast(tvCast)
+    private fun showTvCast(tvActors: List<HorizontalItem>?) {
+        if (tvActors != null) {
+            actorsAdapter.addItems(tvActors)
         }
     }
 
     private fun showReviews(reviews: List<Review>?) {
         if (reviews != null) {
-            reviewsAdapter.addReviews(reviews)
+            reviewsAdapter.addItems(reviews)
         }
     }
 
-    private fun showRecommendedTv(tvList: List<Tv>?) {
-        if (tvList != null) {
-            recommendedTvAdapter.addTvList(tvList)
+    private fun showRecommendedTv(tv: List<HorizontalItem>?) {
+        if (tv != null) {
+            recommendedTvAdapter.addItems(tv)
         }
     }
 

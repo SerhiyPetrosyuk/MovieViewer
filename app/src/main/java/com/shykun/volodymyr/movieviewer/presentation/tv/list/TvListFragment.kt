@@ -11,14 +11,17 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import com.shykun.volodymyr.movieviewer.R
-import com.shykun.volodymyr.movieviewer.data.entity.MoviesType
 import com.shykun.volodymyr.movieviewer.data.entity.TvType
-import com.shykun.volodymyr.movieviewer.data.network.response.TvResponse
 import com.shykun.volodymyr.movieviewer.presentation.common.BackButtonListener
-import com.shykun.volodymyr.movieviewer.presentation.common.ScrollObservable
 import com.shykun.volodymyr.movieviewer.presentation.common.TabNavigationFragment
+import com.shykun.volodymyr.movieviewer.presentation.common.adapters.VerticalListAdapter
+import com.shykun.volodymyr.movieviewer.presentation.discover.tab.GENRES_KEY
+import com.shykun.volodymyr.movieviewer.presentation.discover.tab.RATING_KEY
+import com.shykun.volodymyr.movieviewer.presentation.discover.tab.RELEASE_YEAR_KEY
+import com.shykun.volodymyr.movieviewer.presentation.model.VerticalItemList
 import com.shykun.volodymyr.movieviewer.presentation.profile.SESSION_ID_KEY
 import com.shykun.volodymyr.movieviewer.presentation.tv.details.TV_DETAILS_FRAGMENT_KEY
+import com.shykun.volodymyr.movieviewer.presentation.utils.ScrollObservable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import kotlinx.android.synthetic.main.fragment_movie_list.*
 import ru.terrakok.cicerone.Router
@@ -33,7 +36,7 @@ class TvListFragment : Fragment(), BackButtonListener {
 
     private lateinit var tvType: TvType
     private lateinit var viewModel: TvListViewModel
-    private lateinit var tvListAdapter: TvListAdapter
+    private lateinit var tvListAdapter: VerticalListAdapter
 
     @Inject
     lateinit var viewModelFactory: TvListViewModelFactory
@@ -47,7 +50,7 @@ class TvListFragment : Fragment(), BackButtonListener {
 
         (parentFragment as TabNavigationFragment).component?.inject(this)
         tvType = arguments?.getSerializable(TV_TYPE_KEY) as TvType
-        tvListAdapter = TvListAdapter(ArrayList(), tvType)
+        tvListAdapter = VerticalListAdapter()
         viewModel = ViewModelProviders.of(this, viewModelFactory)
                 .get(TvListViewModel::class.java)
 
@@ -77,6 +80,7 @@ class TvListFragment : Fragment(), BackButtonListener {
             TvType.RATED -> getString(R.string.rated_tv)
             TvType.WATCHLIST -> getString(R.string.tv_watchlist)
             TvType.FAVORITE -> getString(R.string.favorite_tv)
+            TvType.DISCOVERED -> getString(R.string.results)
         }
     }
 
@@ -86,7 +90,7 @@ class TvListFragment : Fragment(), BackButtonListener {
     }
 
     private fun setupTvClick() {
-        tvListAdapter.clickObservable.subscribe {
+        tvListAdapter.clickEvent.subscribe {
             router.navigateTo(TV_DETAILS_FRAGMENT_KEY, it)
         }
     }
@@ -108,7 +112,7 @@ class TvListFragment : Fragment(), BackButtonListener {
     private fun subscribeScrollObervable() {
         val sessionId = prefs.getString(SESSION_ID_KEY, null)
 
-        ScrollObservable.from(movieList, 10)
+        ScrollObservable.from(movieList, 20)
                 .distinctUntilChanged()
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnNext {
@@ -129,21 +133,45 @@ class TvListFragment : Fragment(), BackButtonListener {
                         TvType.WATCHLIST -> {
                             viewModel.getTvWatchlist(sessionId, tvListAdapter.nextPage)
                         }
+                        TvType.DISCOVERED -> {
+                            val year = arguments?.getInt(RELEASE_YEAR_KEY)
+                            val rating = arguments?.getInt(RATING_KEY)
+                            val genres = arguments?.getString(GENRES_KEY)
+
+                            val airDate = if (year != null) "$year-01-01" else null
+
+                            viewModel.discoverTv(airDate, rating, genres, tvListAdapter.nextPage)
+                        }
                     }
                     tvListAdapter.nextPage++
                 }
                 .subscribe()
     }
 
-    fun showTvList(tvResponse: TvResponse?) {
-        if (tvResponse != null) {
-            tvListAdapter.addTvList(tvResponse.results)
-            tvListAdapter.totalItemsCount = tvResponse.totalResults
+    fun showTvList(tvList: VerticalItemList?) {
+        if (tvList != null) {
+            if (tvList.totalItemsCount > 0) {
+                tvListAdapter.addItems(tvList.items)
+                tvListAdapter.totalItemsCount = tvList.totalItemsCount
+            } else {
+                movieList.visibility = View.GONE
+                emptyState.visibility = View.VISIBLE
+            }
         }
     }
 
     fun showError(message: String?) {
         Toast.makeText(this.context, message, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onStop() {
+        super.onStop()
+
+        with(tvListAdapter) {
+            clearItems()
+            totalItemsCount = -1
+            nextPage = 1
+        }
     }
 
     override fun onBackClicked(): Boolean {

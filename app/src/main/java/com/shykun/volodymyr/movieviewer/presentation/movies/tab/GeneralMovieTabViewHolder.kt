@@ -6,17 +6,18 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.shykun.volodymyr.movieviewer.R
-import com.shykun.volodymyr.movieviewer.data.entity.Movie
 import com.shykun.volodymyr.movieviewer.data.entity.MoviesType
 import com.shykun.volodymyr.movieviewer.databinding.ItemHorizontalMovieListBinding
 import com.shykun.volodymyr.movieviewer.presentation.common.BaseViewHolder
+import com.shykun.volodymyr.movieviewer.presentation.common.adapters.HorizontalListAdapter
+import com.shykun.volodymyr.movieviewer.presentation.model.HorizontalItem
 import io.reactivex.subjects.PublishSubject
 import kotlinx.android.synthetic.main.item_horizontal_movie_list.view.*
 
 class GeneralMovieTabViewHolder(
         private val binding: ItemHorizontalMovieListBinding,
         private val seeAllClickSubject: PublishSubject<Int>,
-        private val movieClickSubject: PublishSubject<Int>) : BaseViewHolder<ArrayList<Movie>>(binding) {
+        private val movieClickSubject: PublishSubject<Int>) : BaseViewHolder<ArrayList<HorizontalItem>>(binding) {
 
     private val movieList: RecyclerView = itemView.horizontalMovieList
     private val seeAllMovie: TextView = itemView.seeAllMovie
@@ -25,8 +26,8 @@ class GeneralMovieTabViewHolder(
     lateinit var moviesType: MoviesType
     var progressBarVisibility = View.VISIBLE
 
-    override fun bind(item: ArrayList<Movie>?, totalItemsCount: Int) {
-        super.bind(item, totalItemsCount)
+    override fun bind(item: ArrayList<HorizontalItem>?) {
+        super.bind(item)
 
         when (adapterPosition) {
             POPULAR_MOVIES -> {
@@ -48,8 +49,9 @@ class GeneralMovieTabViewHolder(
 
             movieList.apply {
                 layoutManager = LinearLayoutManager(this.context, LinearLayout.HORIZONTAL, false)
-                val moviesAdapter = MovieTabAdapter(item, moviesType)
-                moviesAdapter.movieClickEvent.subscribe { movieClickSubject.onNext(it) }
+                val moviesAdapter = HorizontalListAdapter()
+                moviesAdapter.addItems(item)
+                moviesAdapter.clickObservable.subscribe { movieClickSubject.onNext(it.id) }
                 adapter = moviesAdapter
             }
         }
