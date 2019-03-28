@@ -100,7 +100,7 @@
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="10dp"
                 android:text="Rated movies"
-                android:textSize="16sp" />
+                android:textSize="18sp" />
 
             <TextView
                 android:id="@+id/ratedTv"
@@ -109,7 +109,7 @@
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="10dp"
                 android:text="Rated TV"
-                android:textSize="16sp" />
+                android:textSize="18sp" />
 
             <TextView
                 android:id="@+id/favoriteMovies"
@@ -118,7 +118,7 @@
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="10dp"
                 android:text="Favorite movies"
-                android:textSize="16sp" />
+                android:textSize="18sp" />
 
 
             <TextView
@@ -128,7 +128,7 @@
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="10dp"
                 android:text="Favorite TV"
-                android:textSize="16sp" />
+                android:textSize="18sp" />
 
             <TextView
                 android:id="@+id/movieWatchlist"
@@ -137,7 +137,7 @@
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="10dp"
                 android:text="Movie watchlist"
-                android:textSize="16sp" />
+                android:textSize="18sp" />
 
             <TextView
                 android:id="@+id/tvWatchList"
@@ -146,7 +146,7 @@
                 android:layout_marginStart="16dp"
                 android:layout_marginTop="10dp"
                 android:text="TV watchlist"
-                android:textSize="16sp" />
+                android:textSize="18sp" />
 
         </LinearLayout>
 

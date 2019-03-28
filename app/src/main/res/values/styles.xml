@@ -15,11 +15,11 @@
         <item name="android:dialogTheme">@style/DialogTheme</item>
     </style>
 
-    <style name="DialogTheme" parent="Base.Theme.AppCompat.Dialog">
+    <style name="DialogTheme" parent="Theme.AppCompat.Dialog">
         <item name="android:textColor">@color/snow</item>
         <item name="android:textColorPrimary">@color/snow</item>
-
-        <item name="android:colorAccent">@color/colorAccent</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:colorBackground">@color/colorPrimary</item>
     </style>
 
 </resources>
